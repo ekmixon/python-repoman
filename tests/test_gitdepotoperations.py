@@ -297,16 +297,16 @@ class TestGitDepotOperations(unittest.TestCase):
 
     def test_request_refresh_git_dirty_workspace(self):
         def taint(workspace):
-            f = open(os.path.join(workspace.path, 'test1.txt'), 'w')
-            f.write('taint!')
-            f.close()
+            with open(os.path.join(workspace.path, 'test1.txt'), 'w') as f:
+                f.write('taint!')
+
         self._test_request_refresh(taint)
 
     def test_request_refresh_git_untracked_file(self):
         def untracked(workspace):
-            f = open(os.path.join(workspace.path, 'untracked.txt'), 'w')
-            f.write('untracked!')
-            f.close()
+            with open(os.path.join(workspace.path, 'untracked.txt'), 'w') as f:
+                f.write('untracked!')
+
         self._test_request_refresh(untracked)
 
     def test_request_refresh_git_detached_workspace(self):
@@ -316,13 +316,12 @@ class TestGitDepotOperations(unittest.TestCase):
 
     def test_request_refresh_git_all_dirty_workspace(self):
         def taint_all(workspace):
-            f = open(os.path.join(workspace.path, 'test1.txt'), 'w')
-            f.write('taint!')
-            f.close()
-            f = open(os.path.join(workspace.path, 'untracked.txt'), 'w')
-            f.write('untracked!')
-            f.close()
+            with open(os.path.join(workspace.path, 'test1.txt'), 'w') as f:
+                f.write('taint!')
+            with open(os.path.join(workspace.path, 'untracked.txt'), 'w') as f:
+                f.write('untracked!')
             sh.git('checkout', detach=True, _cwd=workspace.path)
+
         self._test_request_refresh(taint_all)
 
     def test_request_refresh_not_existing_reference(self):

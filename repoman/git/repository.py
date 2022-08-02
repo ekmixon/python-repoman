@@ -70,11 +70,10 @@ class GitMerge(MergeStrategy):
                   self.other_rev.hash,
                   _ok_code=[0, 1])
 
-        conflicts = self._git('diff', name_only=True, diff_filter='U').split()
-
-        if conflicts:
-            raise MergeConflictError("Conflicts found: merging %s failed" %
-                                     ", ".join(conflicts))
+        if conflicts := self._git('diff', name_only=True, diff_filter='U').split():
+            raise MergeConflictError(
+                f'Conflicts found: merging {", ".join(conflicts)} failed'
+            )
 
     def abort(self):
         self._git('merge', '--abort')
@@ -115,9 +114,11 @@ class GitMergeFastForward(GitMerge):
         super(GitMergeFastForward, self).abort()
 
     def commit(self):
-        if not self._ff_merged:
-            return super(GitMergeFastForward, self).commit()
-        return self.repository.tip()
+        return (
+            self.repository.tip()
+            if self._ff_merged
+            else super(GitMergeFastForward, self).commit()
+        )
 
 
 class Repository(BaseRepo):
@@ -156,8 +157,7 @@ class Repository(BaseRepo):
             datetime.datetime.utcfromtimestamp(float(committer_time)),
         ]
 
-        c = Changeset(self, tuple(initial_values))
-        return c
+        return Changeset(self, tuple(initial_values))
 
     def get_changeset_branches(self, changeset):
         """ Inherited method
@@ -166,8 +166,7 @@ class Repository(BaseRepo):
         branches = self.get_branches()
         branch_contains = lambda branch: self.get_ancestor(
             changeset, branch.get_changeset()).hash == changeset.hash
-        cs_branches = map(lambda b: b.name, filter(branch_contains, branches))
-        return cs_branches
+        return map(lambda b: b.name, filter(branch_contains, branches))
 
     def branch(self, name):
         """Inherited method :func:`~repoman.repository.Repository.branch` """
@@ -187,16 +186,13 @@ class Repository(BaseRepo):
 
     def strip(self, changeset):
         """Inherited method :func:`~repoman.repository.Repository.strip` """
-        self._git('reset', '--hard', '%s^' % changeset.hash)
+        self._git('reset', '--hard', f'{changeset.hash}^')
 
     def branch_exists(self, branch_name):
         """Inherited method
         :func:`~repoman.repository.Repository.branch_exists`
         """
-        for branch in self.get_branches():
-            if branch.name == branch_name:
-                return True
-        return False
+        return any(branch.name == branch_name for branch in self.get_branches())
 
     def tag_exists(self, tag_name):
         """Inherited method :func:`~repoman.repository.Repository.tag_exists`
@@ -211,8 +207,11 @@ class Repository(BaseRepo):
         """Inherited method :func:`~repoman.repository.Repository.get_ancestor`
         """
         if not cs1 or not cs2:
-            error = "Error getting ancestor, " +\
-                "either rev1 or rev2 are None: %s , %s" % (cs1, cs2)
+            error = (
+                "Error getting ancestor, "
+                + f"either rev1 or rev2 are None: {cs1} , {cs2}"
+            )
+
             logger.error(error)
             raise RepositoryError(error)
         return self[self._git('merge-base', cs1.hash, cs2.hash)]
@@ -220,13 +219,13 @@ class Repository(BaseRepo):
     def get_branches(self, active=False, closed=False):
         """Inherited method :func:`~repoman.repository.Repository.get_branches`
         """
-        branches = list([
-            branch_name.strip() for branch_name in self._git(
-                "for-each-ref",
-                "refs/heads",
-                format="%(refname:short)",
-                _iter=True)
-        ])
+        branches = [
+            branch_name.strip()
+            for branch_name in self._git(
+                "for-each-ref", "refs/heads", format="%(refname:short)", _iter=True
+            )
+        ]
+
         try:
             # Add current branch even if it doesn't have commits
             current = self.get_branch()
@@ -274,10 +273,11 @@ class Repository(BaseRepo):
         """
         if not branch_name:
             branch_name = self._git("rev-parse", "--abbrev-ref", "HEAD")
-        else:
-            if not self.branch_exists(branch_name):
-                raise RepositoryError('Branch %s does not exist in repo %s'
-                                      % (branch_name, self.path))
+        elif not self.branch_exists(branch_name):
+            raise RepositoryError(
+                f'Branch {branch_name} does not exist in repo {self.path}'
+            )
+
 
         return self._new_branch_object(branch_name)
 
@@ -309,7 +309,7 @@ class Repository(BaseRepo):
             except:
                 return
 
-            rev_range = "%s..%s" % (cs_from, cs_to)
+            rev_range = f"{cs_from}..{cs_to}"
             cs = self._git(
                 'log', '--pretty=%H', '--reverse',
                 rev_range,
@@ -331,7 +331,7 @@ class Repository(BaseRepo):
 
         refspec = '+refs/*:refs/*'
         if branch != None:
-            refspec = '+refs/heads/%s:refs/heads/%s' % (branch, branch)
+            refspec = f'+refs/heads/{branch}:refs/heads/{branch}'
 
         logger.debug("Executing git -c core.bare=true fetch %s %s",
                      remote, refspec)
@@ -354,7 +354,7 @@ class Repository(BaseRepo):
             # Push everything
             refspec = "refs/*:refs/*"
         elif rev is None:
-            refspec = "%s:%s" % (ref_name, ref_name)
+            refspec = f"{ref_name}:{ref_name}"
         elif ref_name is None:
             raise RepositoryError(
                 "When pushing, revision specified but not reference name")
@@ -362,12 +362,12 @@ class Repository(BaseRepo):
             if self.tag_exists(ref_name):
                 # We don't know what this ref is in remote,
                 # but here it is a tag
-                ref_name = "refs/tags/%s" % ref_name
+                ref_name = f"refs/tags/{ref_name}"
                 all_tags_option = ""
             else:
                 # In any other case, we assume it is a branch
-                ref_name = "refs/heads/%s" % ref_name
-            refspec = "%s:%s" % (rev, ref_name)
+                ref_name = f"refs/heads/{ref_name}"
+            refspec = f"{rev}:{ref_name}"
 
         if all_tags_option:
             self._git("push", dest, refspec, all_tags_option, f=force)
@@ -523,9 +523,9 @@ class Repository(BaseRepo):
         (git log branch_base_name..revision_to_check_hash)
         """
         hashes = self._git(
-            "log",
-            "--pretty=%H",
-            "%s..%s" % (branch_base_name, revision_to_check_hash)).split()
+            "log", "--pretty=%H", f"{branch_base_name}..{revision_to_check_hash}"
+        ).split()
+
 
         return [self._new_changeset_object(h) for h in hashes]
 
@@ -533,8 +533,7 @@ class Repository(BaseRepo):
         """Inherited method
         :func:`~repoman.repository.Repository.compare_branches`
         """
-        hashes = self._git("log", "--pretty=%H",
-                           branch_from, "^%s" % branch_to).split()
+        hashes = self._git("log", "--pretty=%H", branch_from, f"^{branch_to}").split()
 
         return [self._new_changeset_object(h) for h in hashes]
 

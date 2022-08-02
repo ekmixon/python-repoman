@@ -22,27 +22,21 @@ import socket
 class Signature(dict):
     @property
     def user(self):
-        if 'user' in self:
-            return self['user']
-        return getpass.getuser()
+        return self['user'] if 'user' in self else getpass.getuser()
 
     @property
     def email(self):
         if 'email' in self:
             return self['email']
-        return "%s@%s" % (self.user, socket.gethostname())
+        return f"{self.user}@{socket.gethostname()}"
 
     @property
     def author(self):
-        if 'author' in self:
-            return self['author']
-        return self.user
+        return self['author'] if 'author' in self else self.user
 
     @property
     def author_email(self):
-        if 'author_email' in self:
-            return self['author_email']
-        return self.email
+        return self['author_email'] if 'author_email' in self else self.email
 
     def __str__(self):
-        return "%s <%s>" % (self.user, self.email)
+        return f"{self.user} <{self.email}>"

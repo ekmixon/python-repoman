@@ -50,7 +50,7 @@ class Depot(object):
         :type requirements: dict
         :returns: True is successfull.
         """
-        logger.info('Requested refresh of %s' % (self.path))
+        logger.info(f'Requested refresh of {self.path}')
         return self.grab_changesets_from_upstream(requirements)
 
     def grab_changesets_from_upstream(self, requirements):
@@ -62,13 +62,12 @@ class Depot(object):
             {'repository_path': [changeset1, changeset2, ...],...}
         :type requirements: dict
         """
-        logger.debug('(%s) Grabbing changesets from upstream.' % self.path)
+        logger.debug(f'({self.path}) Grabbing changesets from upstream.')
 
         if not self.parent:
-            logger.debug('(%s) I am the root cache. Grabbing outside' %
-                         self.path)
+            logger.debug(f'({self.path}) I am the root cache. Grabbing outside')
             for url in requirements:
-                logger.debug('Grabbing from %s' % url)
+                logger.debug(f'Grabbing from {url}')
                 # TODO: Test Me!!!
                 if not self.ops.grab_changesets(
                         self.path, url, requirements[url]):
@@ -76,13 +75,15 @@ class Depot(object):
                                  url)
                     return False
         else:
-            logger.debug('(%s) I have a root (%s). Requesting from it' % (
-                self.path, self.parent.path))
+            logger.debug(
+                f'({self.path}) I have a root ({self.parent.path}). Requesting from it'
+            )
+
             if not self.parent._grab_changesets_to_(requirements, self.path):
                 logger.error(
                     'Couldn\'t grab required changesets %s' % requirements)
                 return False
-        logger.debug('Grabbing successful from %s' % (self.path))
+        logger.debug(f'Grabbing successful from {self.path}')
         return True
 
     def set_source(self, source):
@@ -100,16 +101,15 @@ class Depot(object):
         """
         actually_required = {}
         for repo_url, changesets in requirements.items():
-            missing = self.ops.check_changeset_availability(
-                self.path, changesets)
-            if missing:
+            if missing := self.ops.check_changeset_availability(
+                self.path, changesets
+            ):
                 actually_required[repo_url] = missing
         return actually_required
 
     def _grab_changesets_to_(self, requirements, path):
         # Test Me please!!!!
-        logger.debug('Grabbing local changesets from %s to %s' % (
-                     self.path, path))
+        logger.debug(f'Grabbing local changesets from {self.path} to {path}')
         if not self.grab_changesets_from_upstream(requirements):
             return False
 

@@ -51,12 +51,16 @@ class TestCommitMessage(unittest.TestCase):
         self.assertTrue('deadbeef' in message)
 
     def testBuilderOverride(self):
+
+
+
         class MyCustomBuilder(DefaultCommitMessageBuilder):
             def __init__(self, prefix):
                 self.prefix = prefix
 
             def commit_message(self, message, values={}):
-                return CommitMessage("%s %s" % (self.prefix, message), values)
+                return CommitMessage(f"{self.prefix} {message}", values)
+
 
         label = "LABEL:"
         branch_name = 'foo'

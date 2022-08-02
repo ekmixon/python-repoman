@@ -26,8 +26,11 @@ class DepotOperations(object):
         try:
             # __import__ in python < 2.7 works not very well
             # TODO: migrate to python 3.0 and change this
-            mod = __import__("repoman.%s.depot_operations" % (repo_kind),
-                             fromlist=['DepotOperations'])
+            mod = __import__(
+                f"repoman.{repo_kind}.depot_operations",
+                fromlist=['DepotOperations'],
+            )
+
             ConcreteDepotOperations = getattr(mod, 'DepotOperations')
             return ConcreteDepotOperations()
         except:

@@ -54,13 +54,16 @@ class DepotOperations(BaseDepotOps):
         """
         Inherited method :func:`~DepotOperations.grab_changesets`
         """
-        logger.debug('Grabbing changesets from %s to %s' % (url, path))
+        logger.debug(f'Grabbing changesets from {url} to {path}')
         # Force handling it as a bare repository so even current branch can be
         # overwritten by fetch
         git_path = os.path.join(
             path,
             sh.git('rev-parse', '--git-dir', _cwd=path).strip())
-        logger.debug("Executing git -c core.bare=true fetch " + url + " +refs/*:refs/* on " + git_path)
+        logger.debug(
+            f"Executing git -c core.bare=true fetch {url} +refs/*:refs/* on {git_path}"
+        )
+
         try:
             output = sh.git('-c', 'core.bare=true', 'fetch',
                             url,
@@ -90,8 +93,7 @@ class DepotOperations(BaseDepotOps):
         """
         Inherited method :func:`~DepotOperations.init_depot`
         """
-        logger.info('Initializing Depot %s with parent %s' % (
-                    path, parent))
+        logger.info(f'Initializing Depot {path} with parent {parent}')
 
         sh.git('init', path, bare=not parent)
 
@@ -120,7 +122,7 @@ class DepotOperations(BaseDepotOps):
         refs_previous_dir = os.path.join(git_path, self._REFS_PREVIOUS_DIR)
         shutil.rmtree(refs_dir)
         if os.path.isdir(refs_previous_dir):
-            logger.debug("Previous state available in %s" % refs_previous_dir)
+            logger.debug(f"Previous state available in {refs_previous_dir}")
             shutil.move(refs_previous_dir, refs_dir)
         else:
             os.makedirs(os.path.join(refs_dir, 'heads'))
@@ -139,7 +141,7 @@ class DepotOperations(BaseDepotOps):
         head_previous_file = os.path.join(git_path,
                                           self._HEAD_PREVIOUS_FILE)
         if os.path.isfile(head_previous_file):
-            logger.debug("Previous HEAD available in %s" % head_previous_file)
+            logger.debug(f"Previous HEAD available in {head_previous_file}")
             os.remove(head_file)
             shutil.move(head_previous_file, head_file)
         else:
@@ -168,7 +170,7 @@ class DepotOperations(BaseDepotOps):
         """
         Inherited method :func:`~DepotOperations.clear_depot`
         """
-        logger.debug("Clearing depot %s" % path)
+        logger.debug(f"Clearing depot {path}")
         self._restore_state(path)
         self._clear_working_copy(path)
 

@@ -92,8 +92,7 @@ class MultiRepoIndexer(object):
                 logger.info("Calling %s from\
                              %s" % (func, indexer.__class__.__name__))
                 method = getattr(indexer, func)
-                result = method(*args)
-                if result:
+                if result := method(*args):
                     return result
             except Exception:
                 logger.info("Error in indexer %s executing\

@@ -62,8 +62,7 @@ def repository_factory(repo_path,
     """
     repo_kind = repo_kind or Repository._autodiscover_repo_type(repo_path)
     try:
-        mod = __import__("repoman.%s.repository" % (repo_kind),
-                         fromlist=['Repository'])
+        mod = __import__(f"repoman.{repo_kind}.repository", fromlist=['Repository'])
         ConcreteRepository = getattr(mod, 'Repository')
 
         return ConcreteRepository(repo_path,

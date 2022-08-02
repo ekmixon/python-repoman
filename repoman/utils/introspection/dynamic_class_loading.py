@@ -28,7 +28,7 @@ def get_class_from_name(clazz_name):
     @param module: str with the name of the module
     @return: a valid class.
     """
-    logger.debug("Loading class: %s" % clazz_name)
+    logger.debug(f"Loading class: {clazz_name}")
     module_name, clazz_name = clazz_name.rsplit('.', 1)
     module = import_module(module_name)
     return module.__getattribute__(clazz_name)
@@ -44,13 +44,13 @@ def _resolve_name(name, package, level):
     if not hasattr(package, 'rindex'):
         raise ValueError("'package' not set to a string")
     dot = len(package)
-    for x in xrange(level, 1, -1):
+    for _ in xrange(level, 1, -1):
         try:
             dot = package.rindex('.', 0, dot)
         except ValueError:
             raise ValueError("attempted relative import beyond top-level "
                              "package")
-    return "%s.%s" % (package[:dot], name)
+    return f"{package[:dot]}.{name}"
 
 
 def import_module(name, package=None):

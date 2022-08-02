@@ -32,7 +32,7 @@ class Changeset(tuple):
         Cutting down the hash string to 12 characters to show short form
         to avoid very large messages formed by hashes
         """
-        return "%s" % self.hash[:self.SHORT_HASH_COUNT]
+        return f"{self.hash[:self.SHORT_HASH_COUNT]}"
 
     @property
     def repository(self):
@@ -40,17 +40,11 @@ class Changeset(tuple):
 
     @property
     def merge(self):
-        if self.repository:
-            return self.repository.is_merge(self.hash)
-        else:
-            return None
+        return self.repository.is_merge(self.hash) if self.repository else None
 
     @property
     def parents(self):
-        if self.repository:
-            return self.repository.get_parents(self.hash)
-        else:
-            return None
+        return self.repository.get_parents(self.hash) if self.repository else None
 
     @property
     def local(self):
@@ -70,9 +64,7 @@ class Changeset(tuple):
 
     @property
     def branch(self):
-        if not self[4]:
-            return self.branches
-        return self[4]
+        return self[4] or self.branches
 
     @property
     def branches(self):

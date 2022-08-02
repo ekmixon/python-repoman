@@ -30,7 +30,7 @@ class HGWebIndexer(BaseIndexer):
         return self._api
 
     def get_branches(self, limit=None):
-        limit = limit if limit else self._max_items
+        limit = limit or self._max_items
         return self.api.get_branches(self.repo_name, limit)
 
     def get_branch_log(self, branch_name, limit=None):

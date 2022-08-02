@@ -57,8 +57,7 @@ class DepotOperations(BaseDepotOps):
                     'Checking availability of changesets in %s: Missing %s' % (
                         path, "'".join(missing)))
         except (hglib.util.error.CommandError, hglib.error.ResponseError) as e:
-            logger.exception(
-                'Error in check_changeset_availability method: %s' % e)
+            logger.exception(f'Error in check_changeset_availability method: {e}')
         return missing
 
     def grab_changesets(self, path, url, changesets):
@@ -70,10 +69,10 @@ class DepotOperations(BaseDepotOps):
         try:
             with hglib.open(path) as dep:
                 result = dep.pull(source=url, rev=changesets)
-                logger.debug('Done grabbing changesets %s' % result)
+                logger.debug(f'Done grabbing changesets {result}')
                 return result
         except (hglib.util.error.CommandError, hglib.error.ResponseError) as e:
-            logger.exception('Error Grabbing changesets: %s' % e)
+            logger.exception(f'Error Grabbing changesets: {e}')
             return False
 
     def init_depot(self, path, parent=None, source=None):
@@ -81,8 +80,7 @@ class DepotOperations(BaseDepotOps):
         :func:`~repoman.depot_operations.DepotOperations.init_depot`
         """
         try:
-            logger.info('Initializing Depot %s with parent %s' % (
-                path, parent))
+            logger.info(f'Initializing Depot {path} with parent {parent}')
             result = hglib.init(dest=path)
             if result:
                 result = self.get_depot_from_path(path, parent)
@@ -98,7 +96,7 @@ class DepotOperations(BaseDepotOps):
         """
         is_depot = os.path.isdir(path) and os.path.isdir(
             os.path.join(path, '.hg'))
-        logger.info(' %s is_a_depot %s' % (path, is_depot))
+        logger.info(f' {path} is_a_depot {is_depot}')
         return is_depot
 
     def _locks_cleanup(self, path):
@@ -117,7 +115,7 @@ class DepotOperations(BaseDepotOps):
         """ Inherited method
         :func:`~repoman.depot_operations.DepotOperations.clear_depot`
         """
-        logger.debug("Clearing depot %s" % path)
+        logger.debug(f"Clearing depot {path}")
         try:
             with hglib.open(path) as dep:
                 status = dep.status()
@@ -128,8 +126,7 @@ class DepotOperations(BaseDepotOps):
                 if status:
                     dep.revert(files="", all=True)
                     dep.purge(all=True)
-                outgoing = dep.outgoing()
-                if outgoing:
+                if outgoing := dep.outgoing():
                     logger.debug(
                         "Need to strip outgoing commits, stripping...")
                     for out in outgoing:
@@ -145,7 +142,7 @@ class DepotOperations(BaseDepotOps):
                 hglib.error.ResponseError,
                 hglib.error.ServerError,
                 hglib.error.CapabilityError) as e:
-            logger.exception('Error clearing the depot %s: %s' % (path, e))
+            logger.exception(f'Error clearing the depot {path}: {e}')
         finally:
             hgrc_path = os.path.join(path, ".hg/hgrc")
             if os.path.exists(hgrc_path):
@@ -162,7 +159,7 @@ class DepotOperations(BaseDepotOps):
         except (hglib.util.error.ServerError,
                 hglib.util.error.CommandError,
                 hglib.error.ResponseError) as e:
-            logger.exception('Error getting depot paths %s: %s' % (path, e))
+            logger.exception(f'Error getting depot paths {path}: {e}')
             raise e
 
         if not paths or "default" not in paths or paths["default"] != source:
@@ -171,9 +168,9 @@ class DepotOperations(BaseDepotOps):
             with open(hgrc_path, 'r+' if already_exists else 'w') as hgrc:
                 if already_exists:
                     prev_content = hgrc.read()
-                    prev_has_path = re.search("default=.*($|\\n)",
-                                              prev_content, re.MULTILINE)
-                    if prev_has_path:
+                    if prev_has_path := re.search(
+                        "default=.*($|\\n)", prev_content, re.MULTILINE
+                    ):
                         new_content = re.sub(
                             "default=.*($|\\n)",
                             "default=%s\n" % source, prev_content)
@@ -182,7 +179,5 @@ class DepotOperations(BaseDepotOps):
                             prev_content, source)
                 else:
                     new_content = "[paths]\ndefault=%s\n" % source
-                logger.debug(
-                    "Setting default source in %s hgrc: %s"
-                    % (path, new_content))
+                logger.debug(f"Setting default source in {path} hgrc: {new_content}")
                 hgrc.write(new_content)

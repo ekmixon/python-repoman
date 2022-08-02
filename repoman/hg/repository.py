@@ -81,13 +81,13 @@ class Repository(BaseRepo):
                 except self.exceptions as e:
                     if self.error_message:
                         arguments = ", ".join(str(arg) for arg in args)
-                        arguments += ", " + str(kwargs)
-                        logger.exception("%s (%s)" % (
-                            self.error_message, arguments))
+                        arguments += f", {kwargs}"
+                        logger.exception(f"{self.error_message} ({arguments})")
                         raise RepositoryError(self.error_message + str(e))
                     else:
                         logger.exception(e)
                         raise RepositoryError(e)
+
             return wrapped
 
     def __getitem__(self, key):
@@ -172,10 +172,11 @@ class Repository(BaseRepo):
         if not branch_name:
             repo = hglib.open(self.path)
             branch_name = repo.branch()
-        else:
-            if not self.branch_exists(branch_name):
-                raise RepositoryError("Branch %s does not exist in repo %s"
-                                      % (branch_name, self.path))
+        elif not self.branch_exists(branch_name):
+            raise RepositoryError(
+                f"Branch {branch_name} does not exist in repo {self.path}"
+            )
+
         return self._new_branch_object(branch_name)
 
     def exterminate_branch(self, branch_name, repo_origin, repo_dest):
@@ -214,8 +215,7 @@ class Repository(BaseRepo):
                     "Cannot close %s branch, it's already closed" %
                     branch_name)
                 return
-            logger.exception("Error closing the release branch %s: %s" % (
-                branch_name, e))
+            logger.exception(f"Error closing the release branch {branch_name}: {e}")
             raise RepositoryError(e)
 
     def get_revset(self, cs_from=None, cs_to=None,
@@ -225,10 +225,7 @@ class Repository(BaseRepo):
         """
         repo = None
         if cs_from:
-            if cs_to:
-                revset = "%s::%s" % (cs_from, cs_to)
-            else:
-                revset = cs_from
+            revset = f"{cs_from}::{cs_to}" if cs_to else cs_from
         else:
             revset = None
 
@@ -246,8 +243,7 @@ class Repository(BaseRepo):
                         changeset = self._new_changeset_object(revision)
                         if changeset not in result:
                             result.append(changeset)
-                    for changeset in result:
-                        yield changeset
+                    yield from result
                 else:
                     chunk_size = 15
                     first = repo.log(limit=1, branch=branch)[0]
@@ -262,11 +258,9 @@ class Repository(BaseRepo):
                         if len(changesets) > chunk_size:
                             first = changesets.pop(-1)
                             first_hash = first.node
-                            revrange = "%s:%s" % (first_hash, chunk_size)
+                            revrange = f"{first_hash}:{chunk_size}"
                         while changesets:
-                            cs = self._new_changeset_object(changesets.pop(0))
-                            yield cs
-
+                            yield self._new_changeset_object(changesets.pop(0))
             except hglib.error.CommandError as e:
                 logger.exception(e)
                 raise RepositoryError(e)
@@ -299,11 +293,8 @@ class Repository(BaseRepo):
         push_succeded = False
         last_exception = None
         MAX_RETRIES = 15
-        if not rev:
-            rev_hash = "tip"
-        else:
-            rev_hash = rev.hash
-        logger.info("Pushing %s from %s to %s" % (rev_hash, self.path, dest))
+        rev_hash = rev.hash if rev else "tip"
+        logger.info(f"Pushing {rev_hash} from {self.path} to {dest}")
 
         retries = 0
         while not push_succeded and retries < MAX_RETRIES:
@@ -312,9 +303,7 @@ class Repository(BaseRepo):
                 push_result = repo.push(
                     dest=dest, rev=rev_hash, newbranch=True)
                 if not push_result:
-                    logger.info(
-                        "hglib.push returned False in %s, retrying..." %
-                        self.path)
+                    logger.info(f"hglib.push returned False in {self.path}, retrying...")
                     last_exception = "hglib.push returned False..."
                     time.sleep(1)
                     rev_hash = update_repo(repo, orig)
@@ -325,20 +314,17 @@ class Repository(BaseRepo):
                 logger.exception("Push didn't work, why?")
                 logger.debug(e.__str__())
                 if self.NEW_REMOTE_HEAD_LITERAL not in str(e):
-                    logger.error("Error pushing: %s" % e)
-                    raise RepositoryError("Error pushing: %s" % e)
+                    logger.error(f"Error pushing: {e}")
+                    raise RepositoryError(f"Error pushing: {e}")
                 logger.debug("Error pushing, maybe two heads...")
                 try:
                     rev_hash = update_repo(repo, orig)
                 except hglib.error.CommandError as ex:
                     # Conflicts??
                     logger.exception("Error merging!")
-                    raise RepositoryError(
-                        "Error merging: %s (%s)" % (e, ex))
+                    raise RepositoryError(f"Error merging: {e} ({ex})")
         if not push_succeded:
-            raise RepositoryError(
-                "Five attempts for pushing failed: %s" %
-                last_exception)
+            raise RepositoryError(f"Five attempts for pushing failed: {last_exception}")
         else:
             return self[rev_hash]
 
@@ -357,12 +343,12 @@ class Repository(BaseRepo):
         :func:`~repoman.repository.Repository.merge`
         """
         log_message = 'Initiating merge. Local branch: %s. ' + \
-                      'Other branch: %s@%s.'
+                          'Other branch: %s@%s.'
         logger.debug(log_message %
                      (local_branch, other_branch_name, other_rev))
         if not other_rev:
             raise RepositoryError("No revision to merge with specified")
-        if local_branch and not type(local_branch) == Reference:
+        if local_branch and type(local_branch) != Reference:
             raise RepositoryError(
                 "local_branch (%s) parameter must be a Reference " +
                 "instead of %s" % (local_branch, type(local_branch)))
@@ -382,25 +368,23 @@ class Repository(BaseRepo):
                     # Restoring state
                     repo.update(rev=local_branch.name, clean=True)
                 # Error can mean either no need to commit, or conflicts
-                basic_error_msg = \
-                    'Found an error during merge. local: %s, remote: %s@%s' % \
-                    (local_branch.name, other_branch_name, other_rev.hash)
+                basic_error_msg = f'Found an error during merge. local: {local_branch.name}, remote: {other_branch_name}@{other_rev.hash}'
+
                 if "merging" in str(e) and "failed" in str(e):
                     logger.exception("Merging failed with conflicts:")
                     raise MergeConflictError(e.out)
                 elif self.MERGING_WITH_ANCESTOR_LITERAL in e.err:
                     # Ugly way to detect this error, but the e.ret is not
                     # correct
-                    logger.info("Nothing to merge, already merged: %s" % e.err)
+                    logger.info(f"Nothing to merge, already merged: {e.err}")
                     return None
                 elif e.ret == -1:
                     logger.exception(basic_error_msg)
                     if 'response expected' in e.err:
                         raise RepositoryError(e.out)
-                    else:
-                        # Unknown error
-                        logger.exception(e)
-                        raise RepositoryError(e)
+                    # Unknown error
+                    logger.exception(e)
+                    raise RepositoryError(e)
                 else:
                     # Merge failed because it was not needed
                     return None
@@ -422,8 +406,9 @@ class Repository(BaseRepo):
 
         except hglib.error.CommandError as e:
             logger.exception(
-                "Error merging branch %s into %s" % (
-                    other_rev.hash, local_branch.name))
+                f"Error merging branch {other_rev.hash} into {local_branch.name}"
+            )
+
             # Undoing the merge to get rid of partial merges
             repo.update(clean=True)
             raise RepositoryError(e)
@@ -501,7 +486,7 @@ class Repository(BaseRepo):
             raise RepositoryError(error)
         rev1 = cs1.hash
         rev2 = cs2.hash
-        logger.debug("Getting ancestor for: %s, %s" % (rev1, rev2))
+        logger.debug(f"Getting ancestor for: {rev1}, {rev2}")
         ancestor_rev = repo.log(
             revrange="ancestor('%s', '%s')" % (rev1, rev2))[0]
         return self._new_changeset_object(ancestor_rev)
@@ -564,8 +549,7 @@ class Repository(BaseRepo):
         """
         if self._repo_indexer and not active and not closed:
             try:
-                branches = self._repo_indexer.get_branches()
-                if branches:
+                if branches := self._repo_indexer.get_branches():
                     for branch in branches:
                         yield self._new_branch_object(branch)
             except RepoIndexerError:
@@ -576,8 +560,7 @@ class Repository(BaseRepo):
             logger.warning(
                 "Could not retrieve branches from RepoIndexer, " +
                 "polling repository...")
-            for branch in self._get_sorted_branches(active, closed):
-                yield branch
+            yield from self._get_sorted_branches(active, closed)
 
     def _get_sorted_branches(self, active=False, closed=False):
         """

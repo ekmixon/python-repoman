@@ -60,7 +60,7 @@ class DepotManager(object):
         self.dvcs = DepotOperations.get_depot_operations(repo_kind)
         try:
             self.main_work_path = os.path.expanduser(main_workspace)
-            logger.debug('Main workspace: %s' % self.main_work_path)
+            logger.debug(f'Main workspace: {self.main_work_path}')
             self.main_cache_path = os.path.join(self.main_work_path,
                                                 DepotManager.cache_name)
             self.squadron_roster_path = os.path.join(
@@ -71,11 +71,11 @@ class DepotManager(object):
                 os.makedirs(self.main_work_path)
 
             # Create main cache.
-            if not self.dvcs.is_a_depot(self.main_cache_path):
-                self.main_cache = self.dvcs.init_depot(self.main_cache_path,
-                                                       source=main_source)
-            else:
-                self.main_cache = Depot(self.main_cache_path, None, self.dvcs)
+            self.main_cache = (
+                Depot(self.main_cache_path, None, self.dvcs)
+                if self.dvcs.is_a_depot(self.main_cache_path)
+                else self.dvcs.init_depot(self.main_cache_path, source=main_source)
+            )
 
             self.roster = Roster(self.squadron_roster_path)
 
@@ -115,7 +115,7 @@ class DepotManager(object):
         assert task_name, "Error getting clone, task_name is mandatory"
         try:
             roster_entry = self.roster.reserve_clone(task_guid, task_name)
-            logger.debug('roster: %s' % roster_entry)
+            logger.debug(f'roster: {roster_entry}')
             clone = self.dvcs.get_depot_from_path(
                 roster_entry.path, parent=self.main_cache)
         except RosterError:
@@ -160,10 +160,7 @@ class DepotManager(object):
 
     @staticmethod
     def _get_first_matching_clone(clone_list, path):
-        for clone in clone_list:
-            if clone.path == path:
-                return clone
-        return None
+        return next((clone for clone in clone_list if clone.path == path), None)
 
     def get_available_clone(self, path):
         """

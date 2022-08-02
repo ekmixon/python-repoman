@@ -117,17 +117,16 @@ class Roster(collections.abc.MutableMapping):
     def __getitem__(self, key):
         with self.__cursor() as cursor:
             cursor.execute('SELECT * FROM clones WHERE path=?', (key,))
-            result = cursor.fetchone()
-            if not result:
+            if result := cursor.fetchone():
+                return unmarshall(result)
+            else:
                 raise KeyError(key)
-            return unmarshall(result)
 
     def __setitem__(self, key, value):
         if key in self:
             prev = self[key]
             if prev.task != value.task and prev.status != Clone.FREE:
-                raise RosterError('Element already reserved by %s' %
-                                  prev.task_name)
+                raise RosterError(f'Element already reserved by {prev.task_name}')
         self._replace_item_(key, value)
 
     def _get_time_(self):
@@ -159,8 +158,7 @@ class Roster(collections.abc.MutableMapping):
 
     def __len__(self):
         with self.__cursor() as cursor:
-            size = len(cursor.execute('SELECT * FROM clones').fetchall())
-            return size
+            return len(cursor.execute('SELECT * FROM clones').fetchall())
 
     def _get_old_clones_(self):
         result = []
@@ -192,14 +190,14 @@ class Roster(collections.abc.MutableMapping):
                 (task, Clone.INUSE, task_name, timestamp, Clone.FREE))
             self.connection.commit()
 
-            # Check that it could be reserved
-            reserved_clone = cursor.execute(
-                'SELECT * FROM clones WHERE ' +
-                'task=? AND task_name=? AND timestamp=?',
-                (task, task_name, timestamp)).fetchone()
-            if not reserved_clone:
+            if reserved_clone := cursor.execute(
+                'SELECT * FROM clones WHERE '
+                + 'task=? AND task_name=? AND timestamp=?',
+                (task, task_name, timestamp),
+            ).fetchone():
+                return unmarshall(reserved_clone)
+            else:
                 raise RosterError('No available clones')
-            return unmarshall(reserved_clone)
 
     def free_clone(self, clone, task):
         clone.task = task
@@ -216,25 +214,30 @@ class Roster(collections.abc.MutableMapping):
             if result == self.max_clone_limit:
                 clones = cursor.execute('SELECT * FROM clones').fetchall()
                 raise MaxClonesLimitReached(
-                    'Max limit of clones reached: ' +
-                    'result: %s, max: %s, select: %s' % (
-                        result, self.max_clone_limit, clones))
+                    (
+                        'Max limit of clones reached: '
+                        + f'result: {result}, max: {self.max_clone_limit}, select: {clones}'
+                    )
+                )
+
         clone = Clone(path, Clone.INUSE, task, task_name, 0)
         self[clone.path] = clone
         return self[clone.path]
 
     def get_available(self):
         with self.__cursor() as cursor:
-            result = [
-                unmarshall(elem) for elem in cursor.execute(
-                    'SELECT * FROM clones WHERE status=?', (Clone.FREE,))
+            return [
+                unmarshall(elem)
+                for elem in cursor.execute(
+                    'SELECT * FROM clones WHERE status=?', (Clone.FREE,)
+                )
             ]
-            return result
 
     def get_not_available(self):
         with self.__cursor() as cursor:
-            result = [
-                unmarshall(elem) for elem in cursor.execute(
-                    'SELECT * FROM clones WHERE status=?', (Clone.INUSE,))
+            return [
+                unmarshall(elem)
+                for elem in cursor.execute(
+                    'SELECT * FROM clones WHERE status=?', (Clone.INUSE,)
+                )
             ]
-            return result
